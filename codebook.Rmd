@@ -1,0 +1,70 @@
+---
+title: "Codebook"
+author: "Alex"
+date: "September 25, 2015"
+output: html_document
+---
+
+#load packages for analysis
+library(pacman)
+p_load(swirl, data.table, RCurl, readxl, dplyr, magrittr, tidyr, lubridate, stringr)
+
+#download and save data
+path <- getwd()
+path
+
+url <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+zip <- "Dataset.zip"
+if (!file.exists(path)) {
+  dir.create(path)
+}
+download.file(url, file.path(path, zip))
+
+unzip('./Dataset.zip')
+files<-list.files(path, recursive=TRUE)
+files
+
+#read in files
+x.test <- read.table('./UCI HAR Dataset/test/X_test.txt', header = FALSE)
+x.train <- read.table('./UCI HAR Dataset/train/X_train.txt', header = FALSE)
+
+y.test  <- read.table('./UCI HAR Dataset/test/Y_test.txt', header = FALSE)
+y.train <- read.table('./UCI HAR Dataset/train/Y_train.txt', header = FALSE)
+
+subject.test  <- read.table('./UCI HAR Dataset/test/subject_test.txt', header = FALSE)
+subject.train <- read.table('./UCI HAR Dataset/train/subject_train.txt', header = FALSE)
+
+# Merge the datasets by stacking rows (rbind) of corresponding tables.
+x <- rbind(x.test, x.train)
+y <- rbind(y.test, y.train)
+subject <- rbind(subject.test, subject.train)
+
+# Add names to variables. (Appropriately labels the data set with descriptive variable names.)
+names(subject) <- c("subject")
+names(y) <- c("activity")
+dataFeaturesNames <- read.table('./UCI HAR Dataset/features.txt', header = FALSE)
+names(x) <- dataFeaturesNames$V2
+
+# Merge columns (cbind) to get a single data frame for all data.
+dataAll <- cbind(subject, y, x)
+
+#Use descriptive activity names to name the activities in the data set (activity names from "activity_labels.txt")
+activityLabels <- read.table('./UCI HAR Dataset/activity_labels.txt', header = FALSE)
+names(activityLabels) <- c("activity", "activity_label")
+dataAll <- left_join(dataAll, activityLabels, by = "activity")
+
+#Extract only the measurements on the mean and standard deviation for each measurement
+subdataFeaturesNames <- dataFeaturesNames$V2[grep("mean\\(\\)|std\\(\\)", dataFeaturesNames$V2)]
+selectedNames <- c(as.character(subdataFeaturesNames), "subject", "activity_label")
+data_subset <- subset(dataAll, select = selectedNames)
+
+#Create a second independent tidy data set with the average of each variable for each activity and each subject.
+tidy_summary <- data_subset %>%
+  group_by(subject, activity_label) %>%
+  summarise_each(funs(mean))
+
+#Upload your data set as a txt file created with write.table() using row.name=FALSE.
+write.table(tidy_summary, file = "tidydata.txt", row.name=FALSE)
+
+
+
